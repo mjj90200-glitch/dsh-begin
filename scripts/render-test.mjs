@@ -93,6 +93,7 @@ const checks = [
   hasVideo
     ? ['视频用 autoplay/muted/loop', /<video[^>]*autoplay[^>]*muted[^>]*loop/.test(rendered)]
     : ['补丁使用百分比定位', /dbg-patch-eyes"[^>]*style="left:[\d.]+%/.test(rendered)],
+  ['首次打开播问候视频', rendered.includes('dbg-greet') || !rendered.includes('dbg-video')],
   ['注入脚本语法可解析', scripts.length >= 2 && scripts.every(parses)],
   [
     '启动页早于应用入口脚本',
@@ -141,6 +142,10 @@ let previewHtml = standalone
 if (hasVideo) {
   copyFileSync(join(root, 'assets', 'idle.mp4'), join(outDir, 'idle.mp4'))
   previewHtml = previewHtml.replaceAll('/dsh-begin/idle.mp4', './idle.mp4')
+}
+if (existsSync(join(root, 'assets', 'greet-01.mp4'))) {
+  copyFileSync(join(root, 'assets', 'greet-01.mp4'), join(outDir, 'greet-01.mp4'))
+  previewHtml = previewHtml.replaceAll('/dsh-begin/greet-01.mp4', './greet-01.mp4')
 }
 const previewPath = join(outDir, 'splash-preview.html')
 writeFileSync(previewPath, previewHtml, 'utf8')
