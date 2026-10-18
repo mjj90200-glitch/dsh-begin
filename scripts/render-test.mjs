@@ -7,7 +7,7 @@
  *   DSH_APP_DIR="/Applications/DSH Desktop.app/Contents/Resources/app" \
  *     ELECTRON_RUN_AS_NODE=1 "<Electron 可执行文件>" scripts/render-test.mjs
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -61,6 +61,20 @@ const rawHtml = readFileSync(
 const rendered = renderIndexInjections(rawHtml, table)
 
 // ── 断言 ──────────────────────────────────────────────────────────────
+const voiceDir = join(root, 'assets', 'voice')
+const hasVoice = existsSync(join(voiceDir, 'manifest.json'))
+
+/** 注入的脚本是字符串，import 时不会被解析，这里单独过一遍语法。 */
+const parses = (source) => {
+  try {
+    new Function(source)
+    return true
+  } catch {
+    return false
+  }
+}
+const scripts = table.filter((row) => row.kind === 'script').map((row) => row.text)
+
 const checks = [
   ['启动页标记进入文档', rendered.includes('<div id="dsh-begin-root"')],
   ['立绘 img 进入文档', rendered.includes('id="dsh-begin-root"') && rendered.includes('deepseek-bust.webp')],
@@ -70,6 +84,8 @@ const checks = [
   ['交互脚本进入文档', rendered.includes("getElementById('dsh-begin-root')")],
   ['兜底脚本进入文档', rendered.includes('data-dbg-init')],
   ['素材路由已注册', routes.some((route) => route.path === '/dsh-begin')],
+  ['台词带上语音 URL', hasVoice ? rendered.includes('/dsh-begin/voice/') : true],
+  ['注入脚本语法可解析', scripts.length >= 2 && scripts.every(parses)],
   [
     '启动页早于应用入口脚本',
     rendered.indexOf('dsh-begin-root') < rendered.indexOf('assets/index-'),
@@ -94,6 +110,13 @@ const standalone = rendered
   .replace(/<script[^>]*\bsrc=[^>]*><\/script>/gu, '')
   .replace(/<link[^>]*\brel="(?:modulepreload|stylesheet)"[^>]*>/gu, '')
   .replaceAll('/dsh-begin/deepseek-bust.webp', artDataUri)
+  // 本轮台词用到的语音也内联，预览里能真的听见
+  .replace(/\/dsh-begin\/voice\/([A-Za-z0-9._-]+\.mp3)/gu, (whole, file) => {
+    const filePath = join(voiceDir, file)
+    return existsSync(filePath)
+      ? 'data:audio/mpeg;base64,' + readFileSync(filePath).toString('base64')
+      : whole
+  })
 
 const outDir = join(root, 'preview')
 mkdirSync(outDir, { recursive: true })
