@@ -8,3 +8,7 @@ preview/
 *.zip
 *.mp4
 *.webm
+
+# 配音产物：由 scripts/gen-voice.py 从台词现生成，不进版本库
+assets/voice/*.mp3
+assets/voice/manifest.json
