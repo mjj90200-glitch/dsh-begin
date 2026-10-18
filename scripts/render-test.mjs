@@ -7,7 +7,7 @@
  *   DSH_APP_DIR="/Applications/DSH Desktop.app/Contents/Resources/app" \
  *     ELECTRON_RUN_AS_NODE=1 "<Electron 可执行文件>" scripts/render-test.mjs
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -61,6 +61,7 @@ const rawHtml = readFileSync(
 const rendered = renderIndexInjections(rawHtml, table)
 
 // ── 断言 ──────────────────────────────────────────────────────────────
+const hasVideo = existsSync(join(root, 'assets', 'idle.mp4'))
 const voiceDir = join(root, 'assets', 'voice')
 const hasVoice = existsSync(join(voiceDir, 'manifest.json'))
 
@@ -85,9 +86,13 @@ const checks = [
   ['兜底脚本进入文档', rendered.includes('data-dbg-init')],
   ['素材路由已注册', routes.some((route) => route.path === '/dsh-begin')],
   ['台词带上语音 URL', hasVoice ? rendered.includes('/dsh-begin/voice/') : true],
-  ['眨眼补丁已注入', rendered.includes('dbg-patch-eyes')],
-  ['口型补丁已注入', rendered.includes('dbg-patch-mouth')],
-  ['补丁使用百分比定位', /dbg-patch-eyes"[^>]*style="left:[\d.]+%/.test(rendered)],
+  // 两种模式二选一：有待机视频时用视频，没有时退回「静态图 + 补丁」
+  hasVideo
+    ? ['待机视频已注入', rendered.includes('<video class="dbg-video"')]
+    : ['眨眼补丁已注入', rendered.includes('dbg-patch-eyes')],
+  hasVideo
+    ? ['视频用 autoplay/muted/loop', /<video[^>]*autoplay[^>]*muted[^>]*loop/.test(rendered)]
+    : ['补丁使用百分比定位', /dbg-patch-eyes"[^>]*style="left:[\d.]+%/.test(rendered)],
   ['注入脚本语法可解析', scripts.length >= 2 && scripts.every(parses)],
   [
     '启动页早于应用入口脚本',
@@ -130,8 +135,15 @@ const standalone = rendered
 
 const outDir = join(root, 'preview')
 mkdirSync(outDir, { recursive: true })
+
+// 预览是 file:// 打开的，/dsh-begin/* 请求不到：视频拷到旁边并改成相对路径
+let previewHtml = standalone
+if (hasVideo) {
+  copyFileSync(join(root, 'assets', 'idle.mp4'), join(outDir, 'idle.mp4'))
+  previewHtml = previewHtml.replaceAll('/dsh-begin/idle.mp4', './idle.mp4')
+}
 const previewPath = join(outDir, 'splash-preview.html')
-writeFileSync(previewPath, standalone, 'utf8')
+writeFileSync(previewPath, previewHtml, 'utf8')
 console.log('预览已导出:', previewPath)
 
 if (failed > 0) {
