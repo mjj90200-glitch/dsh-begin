@@ -85,6 +85,9 @@ const checks = [
   ['兜底脚本进入文档', rendered.includes('data-dbg-init')],
   ['素材路由已注册', routes.some((route) => route.path === '/dsh-begin')],
   ['台词带上语音 URL', hasVoice ? rendered.includes('/dsh-begin/voice/') : true],
+  ['眨眼补丁已注入', rendered.includes('dbg-patch-eyes')],
+  ['口型补丁已注入', rendered.includes('dbg-patch-mouth')],
+  ['补丁使用百分比定位', /dbg-patch-eyes"[^>]*style="left:[\d.]+%/.test(rendered)],
   ['注入脚本语法可解析', scripts.length >= 2 && scripts.every(parses)],
   [
     '启动页早于应用入口脚本',
@@ -115,6 +118,13 @@ const standalone = rendered
     const filePath = join(voiceDir, file)
     return existsSync(filePath)
       ? 'data:audio/mpeg;base64,' + readFileSync(filePath).toString('base64')
+      : whole
+  })
+  // 眨眼 / 口型补丁同样内联，预览里能看到动起来
+  .replace(/\/dsh-begin\/layers\/([A-Za-z0-9._-]+\.webp)/gu, (whole, file) => {
+    const filePath = join(root, 'assets', 'layers', file)
+    return existsSync(filePath)
+      ? 'data:image/webp;base64,' + readFileSync(filePath).toString('base64')
       : whole
   })
 

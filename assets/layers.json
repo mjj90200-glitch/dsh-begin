@@ -1,0 +1,24 @@
+{
+  "canvas": [
+    2560,
+    1440
+  ],
+  "eyes": {
+    "file": "layers/eyes-closed.webp",
+    "rect": [
+      1301,
+      360,
+      720,
+      429
+    ]
+  },
+  "mouth": {
+    "file": "layers/mouth-closed.webp",
+    "rect": [
+      1578,
+      704,
+      258,
+      208
+    ]
+  }
+}
